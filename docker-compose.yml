@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  nba_app:
+    build: .
+    container_name: nba_shoot_app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./deep_models:/app/deep_models
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_HEADLESS=true
+      - TF_CPP_MIN_LOG_LEVEL=2
+    restart: unless-stopped
