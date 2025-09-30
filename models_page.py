@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from models import train_and_eval, grid_search_pipeline, randomized_search_pipeline, optuna_tune, evaluate_model
 
+# ---------------- Cache Data ----------------
 @st.cache_data
 def load_data(path="data/dataset_V5.csv"):
     df = pd.read_csv(path)
@@ -13,10 +14,28 @@ def load_data(path="data/dataset_V5.csv"):
         df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"], errors="coerce")
     return df
 
+# ---------------- Helpers ----------------
+def save_pipeline_light(path, pipeline, fig_imp=None):
+    """
+    Sauvegarde pipeline compressé et léger + figure d'importance séparée si besoin.
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    # Sauvegarde compressée pipeline
+    joblib.dump(pipeline, path, compress=9)
+    # Figure séparée
+    if fig_imp is not None:
+        joblib.dump(fig_imp, path.replace(".pkl", "_fig_imp.pkl"))
+
+def load_pipeline_light(path):
+    pipeline = joblib.load(path)
+    fig_path = path.replace(".pkl", "_fig_imp.pkl")
+    fig_imp = joblib.load(fig_path) if os.path.exists(fig_path) else None
+    return pipeline, fig_imp
+
+# ---------------- Page ML ----------------
 def show():
     st.subheader("🤖 Modèles")
 
-    # Chargement des données
     df = load_data()
     drop_vars = ['SHOT_MADE_FLAG', 'GAME_DATE', 'GAME_EVENT_ID']
     df = df.sort_values('GAME_DATE').reset_index(drop=True)
@@ -28,7 +47,6 @@ def show():
     X_test = df[df['GAME_DATE'] > split_date].drop(columns=drop_vars)
     y_test = df[df['GAME_DATE'] > split_date]['SHOT_MADE_FLAG']
 
-    # Choix du modèle
     model_option = st.selectbox("Choisir le modèle", ["Random Forest", "XGBoost"])
     model_name_lower = model_option.replace(" ", "_").lower()
     saved_models = {
@@ -38,7 +56,6 @@ def show():
         "optuna": f"models/{model_name_lower}_pipeline_optuna.pkl"
     }
 
-    # Onglets
     tab1, tab2, tab3 = st.tabs(["📂 Charger", "🔹 Simple", "🔧 Tuning"])
 
     # ---------------- Tab 1 : Charger ----------------
@@ -47,13 +64,8 @@ def show():
         if available_models:
             model_to_load = st.radio("Modèles disponibles :", list(available_models.keys()))
             if st.button("Charger", key="load_model"):
-                loaded_pipeline = joblib.load(available_models[model_to_load])
+                loaded_pipeline, fig_imp = load_pipeline_light(available_models[model_to_load])
                 st.success(f"✅ {model_to_load} chargé")
-
-                # Figure d'importances si dispo
-                fig_path = available_models[model_to_load].replace(".pkl", "_fig_imp.pkl")
-                fig_imp = joblib.load(fig_path) if os.path.exists(fig_path) else None
-
                 evaluate_model(
                     loaded_pipeline, X_test, y_test,
                     model_name=f"{model_option} ({model_to_load})",
@@ -80,9 +92,7 @@ def show():
                 st.write("### Rapport (simplifié)")
                 st.dataframe(pd.DataFrame(report).T[['precision','recall','f1-score']])
 
-            os.makedirs("models", exist_ok=True)
-            # Sauvegarde pipeline complet mais compressé
-            joblib.dump(pipeline, saved_models["standard"], compress=9)
+            save_pipeline_light(saved_models["standard"], pipeline)
             st.info(f"💾 Modèle compressé sauvegardé dans {saved_models['standard']}")
 
     # ---------------- Tab 3 : Tuning ----------------
@@ -92,19 +102,13 @@ def show():
 
         if st.button("Lancer le tuning", key="run_tuning"):
             fig_imp = None
-
+            # Paramètres simplifiés pour tuning rapide
             if model_option == "Random Forest":
                 base_model = RandomForestClassifier(random_state=42, n_jobs=-1)
                 param_grid = {
                     'classifier__n_estimators': [200, 400],
                     'classifier__max_depth': [5, 10],
                     'classifier__min_samples_split': [2, 5]
-                }
-                param_space = lambda trial: {
-                    "n_estimators": trial.suggest_int("n_estimators", 200, 400),
-                    "max_depth": trial.suggest_int("max_depth", 5, 10),
-                    "min_samples_split": trial.suggest_int("min_samples_split", 2, 5),
-                    "random_state": 42, "n_jobs": -1
                 }
             else:
                 base_model = XGBClassifier(random_state=42, eval_metric='logloss', n_jobs=-1, use_label_encoder=False)
@@ -116,16 +120,6 @@ def show():
                     'classifier__colsample_bytree': [0.8, 1.0],
                     'classifier__gamma': [0, 1]
                 }
-                param_space = lambda trial: {
-                    "n_estimators": trial.suggest_int("n_estimators", 100, 200),
-                    "max_depth": trial.suggest_int("max_depth", 3, 5),
-                    "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.1),
-                    "subsample": trial.suggest_float("subsample", 0.8, 1.0),
-                    "colsample_bytree": trial.suggest_float("colsample_bytree", 0.8, 1.0),
-                    "gamma": trial.suggest_float("gamma", 0, 1),
-                    "random_state": 42, "n_jobs": -1, "eval_metric": "logloss",
-                    "use_label_encoder": False
-                }
 
             with st.spinner(f"⏳ {tuning_method} en cours..."):
                 if tuning_method == "GridSearch":
@@ -135,6 +129,8 @@ def show():
                     search = randomized_search_pipeline(base_model, X_train, y_train, param_grid, n_iter=20, cv=3)
                     best_pipeline = search.best_estimator_
                 else:
+                    # Optuna tuning
+                    param_space = lambda trial: {k.replace('classifier__',''): trial.suggest_int(k.replace('classifier__',''), min(param_grid[k]), max(param_grid[k])) for k in param_grid}
                     best_pipeline = optuna_tune(type(base_model), param_space, X_train, y_train, n_trials=20, scoring="f1")
 
                 evaluate_model(
@@ -144,10 +140,6 @@ def show():
                     fig_importance=fig_imp
                 )
 
-                # Sauvegarde compressée
-                os.makedirs("models", exist_ok=True)
                 save_path = f"models/{model_name_lower}_pipeline_{key_map[tuning_method]}.pkl"
-                joblib.dump(best_pipeline, save_path, compress=9)
-                if fig_imp is not None:
-                    joblib.dump(fig_imp, save_path.replace(".pkl", "_fig_imp.pkl"))
+                save_pipeline_light(save_path, best_pipeline, fig_imp)
                 st.info(f"💾 Modèle compressé sauvegardé dans {save_path}")
