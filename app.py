@@ -1,4 +1,4 @@
-import acceuil_page, data_page, deep_learning_page, models_page, visualisation_page
+import acceuil_page, data_page, deep_learning_page, models_page, visualisation_page, prediction_page
 import streamlit as st
 
 
@@ -12,7 +12,7 @@ menu = {
     "Visualisation": visualisation_page.show,
     "Modèles": models_page.show,
     "Deep Learning": deep_learning_page.show,
-    "Prédiction": None,
+    "Prédiction": prediction_page.show,
 }
 
 # Sélection via la sidebar
