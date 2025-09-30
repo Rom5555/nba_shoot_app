@@ -18,10 +18,11 @@ def save_model_obj(path, obj, tabnet_model=None, tabnet_path=None):
     """
     Essaie de joblib.dump directement. Si échec (ex: TabNet non picklable), sauvegarde
     l'objet partiel et, si fourni, le modèle TabNet séparément via save_model.
+    Compression maximale utilisée pour alléger.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
-        joblib.dump(obj, path)
+        joblib.dump(obj, path, compress=9)
         return True, None
     except Exception:
         if tabnet_model is not None and tabnet_path is not None:
@@ -34,7 +35,7 @@ def save_model_obj(path, obj, tabnet_model=None, tabnet_path=None):
                 obj_copy["model"] = None
                 obj_copy["_tabnet_model_path"] = tabnet_path
             try:
-                joblib.dump(obj_copy, path)
+                joblib.dump(obj_copy, path, compress=9)
                 return True, f"model_saved_separately:{tabnet_path}"
             except Exception as e2:
                 return False, str(e2)
@@ -93,13 +94,11 @@ def show():
                     st.error(f"Erreur au chargement : {e}")
                     loaded = None
 
-                if loaded is None:
-                    st.error("Impossible de charger le modèle.")
-                else:
+                if loaded:
                     st.success(f"✅ {model_to_load} chargé")
 
                     # Préprocessing pour test
-                    if isinstance(loaded, dict) and "preprocessor" in loaded and loaded["preprocessor"] is not None:
+                    if isinstance(loaded, dict) and "preprocessor" in loaded and loaded["preprocessor"]:
                         preproc = loaded["preprocessor"]
                         try:
                             X_test_proc = preproc.transform(X_test).astype('float32')
@@ -144,7 +143,7 @@ def show():
 
             deep.eval_deep(model, X_test_proc, y_test, history=history, plot_cm=True, plot_loss=True, show_on_streamlit=True)
 
-            # Sauvegarde robuste
+            # ---------------- Sauvegarde allégée ----------------
             os.makedirs("deep_models", exist_ok=True)
             save_path = f"deep_models/{deep_name_lower}_standard.pkl"
             save_obj = {"model": model, "preprocessor": preprocessor, "history": history}

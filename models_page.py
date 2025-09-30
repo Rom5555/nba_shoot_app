@@ -47,7 +47,7 @@ def show():
         if available_models:
             model_to_load = st.radio("Modèles disponibles :", list(available_models.keys()))
             if st.button("Charger", key="load_model"):
-                loaded_model = joblib.load(available_models[model_to_load])
+                loaded_pipeline = joblib.load(available_models[model_to_load])
                 st.success(f"✅ {model_to_load} chargé")
 
                 # Figure d'importances si dispo
@@ -55,7 +55,7 @@ def show():
                 fig_imp = joblib.load(fig_path) if os.path.exists(fig_path) else None
 
                 evaluate_model(
-                    loaded_model, X_test, y_test,
+                    loaded_pipeline, X_test, y_test,
                     model_name=f"{model_option} ({model_to_load})",
                     feature_importances=(fig_imp is not None),
                     fig_importance=fig_imp
@@ -66,9 +66,9 @@ def show():
     # ---------------- Tab 2 : Entraînement simple ----------------
     with tab2:
         if st.button("Entraîner et évaluer", key="train_simple"):
-            base_model = RandomForestClassifier(random_state=42, n_jobs=-1) \
+            base_model = RandomForestClassifier(random_state=42, n_jobs=-1, n_estimators=200, max_depth=10) \
                 if model_option == "Random Forest" else \
-                XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss', n_jobs=-1)
+                XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss', n_jobs=-1, n_estimators=100, max_depth=5)
 
             pipeline, report, auc, fig_cm = train_and_eval(base_model, X_train, y_train, X_test, y_test)
 
@@ -81,8 +81,9 @@ def show():
                 st.dataframe(pd.DataFrame(report).T[['precision','recall','f1-score']])
 
             os.makedirs("models", exist_ok=True)
-            joblib.dump(pipeline, saved_models["standard"])
-            st.info(f"💾 Sauvegardé dans {saved_models['standard']}")
+            # Sauvegarde pipeline complet mais compressé
+            joblib.dump(pipeline, saved_models["standard"], compress=9)
+            st.info(f"💾 Modèle compressé sauvegardé dans {saved_models['standard']}")
 
     # ---------------- Tab 3 : Tuning ----------------
     with tab3:
@@ -92,37 +93,36 @@ def show():
         if st.button("Lancer le tuning", key="run_tuning"):
             fig_imp = None
 
-            # Définition modèle + paramètres
             if model_option == "Random Forest":
                 base_model = RandomForestClassifier(random_state=42, n_jobs=-1)
                 param_grid = {
-                    'classifier__n_estimators': [200, 400, 600],
-                    'classifier__max_depth': [5, 10, 15],
-                    'classifier__min_samples_split': [2, 5, 10]
+                    'classifier__n_estimators': [200, 400],
+                    'classifier__max_depth': [5, 10],
+                    'classifier__min_samples_split': [2, 5]
                 }
                 param_space = lambda trial: {
-                    "n_estimators": trial.suggest_int("n_estimators", 200, 600),
-                    "max_depth": trial.suggest_int("max_depth", 5, 15),
-                    "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
+                    "n_estimators": trial.suggest_int("n_estimators", 200, 400),
+                    "max_depth": trial.suggest_int("max_depth", 5, 10),
+                    "min_samples_split": trial.suggest_int("min_samples_split", 2, 5),
                     "random_state": 42, "n_jobs": -1
                 }
             else:
                 base_model = XGBClassifier(random_state=42, eval_metric='logloss', n_jobs=-1, use_label_encoder=False)
                 param_grid = {
-                    'classifier__n_estimators': [100, 200, 300],
-                    'classifier__max_depth': [3, 5, 7],
-                    'classifier__learning_rate': [0.01, 0.05, 0.1],
-                    'classifier__subsample': [0.6, 0.8, 1.0],
-                    'classifier__colsample_bytree': [0.6, 0.8, 1.0],
-                    'classifier__gamma': [0, 1, 5]
+                    'classifier__n_estimators': [100, 200],
+                    'classifier__max_depth': [3, 5],
+                    'classifier__learning_rate': [0.05, 0.1],
+                    'classifier__subsample': [0.8, 1.0],
+                    'classifier__colsample_bytree': [0.8, 1.0],
+                    'classifier__gamma': [0, 1]
                 }
                 param_space = lambda trial: {
-                    "n_estimators": trial.suggest_int("n_estimators", 100, 300),
-                    "max_depth": trial.suggest_int("max_depth", 3, 7),
-                    "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1),
-                    "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-                    "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                    "gamma": trial.suggest_float("gamma", 0, 5),
+                    "n_estimators": trial.suggest_int("n_estimators", 100, 200),
+                    "max_depth": trial.suggest_int("max_depth", 3, 5),
+                    "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.1),
+                    "subsample": trial.suggest_float("subsample", 0.8, 1.0),
+                    "colsample_bytree": trial.suggest_float("colsample_bytree", 0.8, 1.0),
+                    "gamma": trial.suggest_float("gamma", 0, 1),
                     "random_state": 42, "n_jobs": -1, "eval_metric": "logloss",
                     "use_label_encoder": False
                 }
@@ -144,10 +144,10 @@ def show():
                     fig_importance=fig_imp
                 )
 
-                # Sauvegarde
+                # Sauvegarde compressée
                 os.makedirs("models", exist_ok=True)
                 save_path = f"models/{model_name_lower}_pipeline_{key_map[tuning_method]}.pkl"
-                joblib.dump(best_pipeline, save_path)
+                joblib.dump(best_pipeline, save_path, compress=9)
                 if fig_imp is not None:
                     joblib.dump(fig_imp, save_path.replace(".pkl", "_fig_imp.pkl"))
-                st.info(f"💾 Sauvegardé dans {save_path}")
+                st.info(f"💾 Modèle compressé sauvegardé dans {save_path}")
