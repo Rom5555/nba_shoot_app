@@ -100,16 +100,18 @@ def show():
         tuning_method = st.radio("Méthode :", ["GridSearch", "RandomizedSearch", "Optuna"])
         key_map = {"GridSearch": "grid", "RandomizedSearch": "randomized", "Optuna": "optuna"}
 
+        IS_CLOUD = st.runtime.scriptrunner.is_running_with_streamlit
+
         if st.button("Lancer le tuning", key="run_tuning"):
             # Vérifie si on est sur Streamlit Cloud
-            if os.environ.get("STREAMLIT_RUNTIME") is not None:
+            if IS_CLOUD:
                 st.warning("🚫 Le tuning est désactivé sur Streamlit Cloud (trop lourd).")
                 st.info("👉 Charge un modèle déjà entraîné depuis l’onglet 📂 Charger.")
             else:
                 
                 fig_imp = None
 
-            # ---------------- Définition modèle + paramètres ----------------
+                # ---------------- Définition modèle + paramètres ----------------
                 if model_option == "Random Forest":
                     base_model = RandomForestClassifier(random_state=42, n_jobs=-1)
                     param_grid = {

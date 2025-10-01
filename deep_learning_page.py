@@ -112,8 +112,10 @@ def show():
 
     # ---------------- Tab2 : Entraînement simple ----------------
     with tab2:
+        IS_CLOUD = st.runtime.scriptrunner.is_running_with_streamlit
+        
         if st.button("Entraîner et évaluer", key="train_deep_simple"):
-            if os.environ.get("STREAMLIT_RUNTIME") is not None:
+            if IS_CLOUD:
                 st.warning("🚫 Le tuning est désactivé sur Streamlit Cloud (trop lourd).")
                 st.info("👉 Charge un modèle déjà entraîné depuis l’onglet 📂 Charger.")
             else:           
