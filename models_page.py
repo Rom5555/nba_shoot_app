@@ -100,7 +100,7 @@ def show():
         tuning_method = st.radio("Méthode :", ["GridSearch", "RandomizedSearch", "Optuna"])
         key_map = {"GridSearch": "grid", "RandomizedSearch": "randomized", "Optuna": "optuna"}
 
-        IS_CLOUD = st.runtime.scriptrunner.is_running_with_streamlit
+        IS_CLOUD = os.environ.get("STREAMLIT_SERVER_RUN_MODE") == "production"
 
         if st.button("Lancer le tuning", key="run_tuning"):
             # Vérifie si on est sur Streamlit Cloud

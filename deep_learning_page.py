@@ -112,7 +112,7 @@ def show():
 
     # ---------------- Tab2 : Entraînement simple ----------------
     with tab2:
-        IS_CLOUD = st.runtime.scriptrunner.is_running_with_streamlit
+        IS_CLOUD = os.environ.get("STREAMLIT_SERVER_RUN_MODE") == "production"
         
         if st.button("Entraîner et évaluer", key="train_deep_simple"):
             if IS_CLOUD:
