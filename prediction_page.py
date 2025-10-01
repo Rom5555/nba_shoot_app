@@ -69,19 +69,21 @@ def show():
             if "last_shot" in st.session_state:
                 proba = st.session_state["last_shot"]["proba"]
                 success = st.session_state["last_shot"]["success"]
-                # Afficher le message en petit
+                # Afficher le message en petit avec la probabilité
                 if success:
                     st.markdown(
-                        f'<div style="padding:4px 8px; background-color:#d4edda; color:#155724; border-radius:5px; font-size:14px; text-align:center;">🎉 Panier marqué !</div>',
-                    unsafe_allow_html=True
+                        f'<div style="padding:4px 8px; background-color:#d4edda; color:#155724; border-radius:5px; font-size:14px; text-align:center;">🎉 Panier marqué ! Probabilité : {proba:.2f}</div>',
+                        unsafe_allow_html=True
                     )
                 else:
                     st.markdown(
-                        f'<div style="padding:4px 8px; background-color:#f8d7da; color:#721c24; border-radius:5px; font-size:14px; text-align:center;">❌ Raté !</div>',
+                        f'<div style="padding:4px 8px; background-color:#f8d7da; color:#721c24; border-radius:5px; font-size:14px; text-align:center;">❌ Raté ! Probabilité : {proba:.2f}</div>',
                         unsafe_allow_html=True
                     )
+
         # Petit espacement plutôt qu'un divider
         st.markdown("<br>", unsafe_allow_html=True)
+
 
         # Affichage du GIF en dessous
         if "last_shot" in st.session_state:

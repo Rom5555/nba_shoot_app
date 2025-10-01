@@ -102,37 +102,60 @@ def show():
 
         if st.button("Lancer le tuning", key="run_tuning"):
             fig_imp = None
-            # Paramètres simplifiés pour tuning rapide
+
+            # ---------------- Définition modèle + paramètres ----------------
             if model_option == "Random Forest":
                 base_model = RandomForestClassifier(random_state=42, n_jobs=-1)
                 param_grid = {
-                    'classifier__n_estimators': [200, 400],
-                    'classifier__max_depth': [5, 10],
-                    'classifier__min_samples_split': [2, 5]
+                    'classifier__n_estimators': [200, 400, 600],
+                    'classifier__max_depth': [5, 10, 15],
+                    'classifier__min_samples_split': [2, 5, 10]
                 }
-            else:
-                base_model = XGBClassifier(random_state=42, eval_metric='logloss', n_jobs=-1, use_label_encoder=False)
-                param_grid = {
-                    'classifier__n_estimators': [100, 200],
-                    'classifier__max_depth': [3, 5],
-                    'classifier__learning_rate': [0.05, 0.1],
-                    'classifier__subsample': [0.8, 1.0],
-                    'classifier__colsample_bytree': [0.8, 1.0],
-                    'classifier__gamma': [0, 1]
+                param_space = lambda trial: {
+                    "n_estimators": trial.suggest_int("n_estimators", 200, 600),
+                    "max_depth": trial.suggest_int("max_depth", 5, 15),
+                    "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
+                    "random_state": 42,
+                    "n_jobs": -1
                 }
 
+            else:  # XGBoost
+                base_model = XGBClassifier(random_state=42, n_jobs=-1, use_label_encoder=False, eval_metric='logloss')
+                param_grid = {
+                    'classifier__n_estimators': [100, 200, 300],
+                    'classifier__max_depth': [3, 5, 7],
+                    'classifier__learning_rate': [0.01, 0.05, 0.1],
+                    'classifier__subsample': [0.6, 0.8, 1.0],
+                    'classifier__colsample_bytree': [0.6, 0.8, 1.0],
+                    'classifier__gamma': [0, 1, 5]
+                }
+                param_space = lambda trial: {
+                    "n_estimators": trial.suggest_int("n_estimators", 100, 300),
+                    "max_depth": trial.suggest_int("max_depth", 3, 7),
+                    "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+                    "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                    "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                    "gamma": trial.suggest_float("gamma", 0, 5),
+                    "random_state": 42,
+                    "n_jobs": -1,
+                    "use_label_encoder": False,
+                    "eval_metric": "logloss"
+                }
+
+            # ---------------- Lancement du tuning ----------------
             with st.spinner(f"⏳ {tuning_method} en cours..."):
                 if tuning_method == "GridSearch":
                     grid, fig_imp, _ = grid_search_pipeline(base_model, X_train, y_train, X_test, y_test, param_grid)
                     best_pipeline = grid.best_estimator_
+
                 elif tuning_method == "RandomizedSearch":
                     search = randomized_search_pipeline(base_model, X_train, y_train, param_grid, n_iter=20, cv=3)
                     best_pipeline = search.best_estimator_
-                else:
-                    # Optuna tuning
-                    param_space = lambda trial: {k.replace('classifier__',''): trial.suggest_int(k.replace('classifier__',''), min(param_grid[k]), max(param_grid[k])) for k in param_grid}
+
+                else:  # Optuna
                     best_pipeline = optuna_tune(type(base_model), param_space, X_train, y_train, n_trials=20, scoring="f1")
 
+                # ---------------- Évaluation ----------------
                 evaluate_model(
                     best_pipeline, X_test, y_test,
                     model_name=f"{model_option} ({tuning_method})",
@@ -140,6 +163,7 @@ def show():
                     fig_importance=fig_imp
                 )
 
+                # ---------------- Sauvegarde ----------------
                 save_path = f"models/{model_name_lower}_pipeline_{key_map[tuning_method]}.pkl"
                 save_pipeline_light(save_path, best_pipeline, fig_imp)
                 st.info(f"💾 Modèle compressé sauvegardé dans {save_path}")
