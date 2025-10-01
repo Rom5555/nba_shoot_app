@@ -57,22 +57,42 @@ def show():
         input_df = pd.DataFrame({k: [v] for k, v in selected_features.items()})
         st.dataframe(input_df, use_container_width=True)
 
-    # --------- Colonne droite (résultat + bouton) ----------
+   # --------- Colonne droite (résultat + bouton) ----------
     with col2:
-        if "last_shot" in st.session_state:
-            proba = st.session_state["last_shot"]["proba"]
-            success = st.session_state["last_shot"]["success"]
+        # Créer deux colonnes : une pour le bouton, une pour le petit message
+        btn_col, msg_col = st.columns([2, 3])
 
-            st.markdown(f"**Probabilité de réussite : {proba:.2f}**")
+        with btn_col:
+            tir = st.button("Tirer ! 🎯")
+
+        with msg_col:
+            if "last_shot" in st.session_state:
+                proba = st.session_state["last_shot"]["proba"]
+                success = st.session_state["last_shot"]["success"]
+                # Afficher le message en petit
+                if success:
+                    st.markdown(
+                        f'<div style="padding:4px 8px; background-color:#d4edda; color:#155724; border-radius:5px; font-size:14px; text-align:center;">🎉 Panier marqué !</div>',
+                    unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        f'<div style="padding:4px 8px; background-color:#f8d7da; color:#721c24; border-radius:5px; font-size:14px; text-align:center;">❌ Raté !</div>',
+                        unsafe_allow_html=True
+                    )
+        # Petit espacement plutôt qu'un divider
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Affichage du GIF en dessous
+        if "last_shot" in st.session_state:
+            success = st.session_state["last_shot"]["success"]
             if success:
-                st.success("🎉 Panier marqué !")
                 st.image("assets/lebron-james.gif", use_container_width=True)
             else:
-                st.error("❌ Raté !")
                 st.image("assets/eyebrowfinal.gif", use_container_width=True)
 
-        st.divider()
-        if st.button("Tirer ! 🎯"):
+        # Logique du tir
+        if tir:
             input_df_f = input_df[FEATURES].astype(float)
             proba = float(prediction.predict_shot(pipeline, input_df_f)[0])
             success = np.random.rand() < proba if simulate_by_proba else proba >= 0.5
