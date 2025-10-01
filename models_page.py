@@ -4,13 +4,7 @@ import os
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-from models import (
-    train_and_eval,
-    grid_search_pipeline,
-    randomized_search_pipeline,
-    optuna_tune,
-    evaluate_model
-)
+from models import train_and_eval, grid_search_pipeline, randomized_search_pipeline, optuna_tune, evaluate_model
 
 # ---------------- Cache Data ----------------
 @st.cache_data
@@ -107,6 +101,7 @@ def show():
         key_map = {"GridSearch": "grid", "RandomizedSearch": "randomized", "Optuna": "optuna"}
 
         if st.button("Lancer le tuning", key="run_tuning"):
+            fig_imp = None
             # Paramètres simplifiés pour tuning rapide
             if model_option == "Random Forest":
                 base_model = RandomForestClassifier(random_state=42, n_jobs=-1)
@@ -128,22 +123,15 @@ def show():
 
             with st.spinner(f"⏳ {tuning_method} en cours..."):
                 if tuning_method == "GridSearch":
-                    best_pipeline, importance_df, fig_imp, report, auc, fig_cm = grid_search_pipeline(
-                        base_model, X_train, y_train, X_test, y_test, param_grid
-                    )
+                    grid, fig_imp, _ = grid_search_pipeline(base_model, X_train, y_train, X_test, y_test, param_grid)
+                    best_pipeline = grid.best_estimator_
                 elif tuning_method == "RandomizedSearch":
-                    best_pipeline, importance_df, fig_imp, report, auc, fig_cm = randomized_search_pipeline(
-                        base_model, X_train, y_train, X_test, y_test, param_grid, n_iter=20, cv=3
-                    )
+                    search = randomized_search_pipeline(base_model, X_train, y_train, param_grid, n_iter=20, cv=3)
+                    best_pipeline = search.best_estimator_
                 else:
-                    param_space = lambda trial: {
-                        k.replace('classifier__', ''): trial.suggest_int(
-                            k.replace('classifier__', ''), min(param_grid[k]), max(param_grid[k])
-                        ) for k in param_grid
-                    }
-                    best_pipeline, importance_df, fig_imp, report, auc, fig_cm = optuna_tune(
-                        type(base_model), param_space, X_train, y_train, X_test, y_test, n_trials=20, scoring="f1"
-                    )
+                    # Optuna tuning
+                    param_space = lambda trial: {k.replace('classifier__',''): trial.suggest_int(k.replace('classifier__',''), min(param_grid[k]), max(param_grid[k])) for k in param_grid}
+                    best_pipeline = optuna_tune(type(base_model), param_space, X_train, y_train, n_trials=20, scoring="f1")
 
                 evaluate_model(
                     best_pipeline, X_test, y_test,
