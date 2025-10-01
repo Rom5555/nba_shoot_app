@@ -112,7 +112,7 @@ def show():
 
     # ---------------- Tab2 : Entraînement simple ----------------
     with tab2:
-        IS_CLOUD = os.environ.get("STREAMLIT_SERVER_RUN_MODE") == "production"
+        IS_CLOUD = st.secrets.get("IS_CLOUD") == "true"
         
         if st.button("Entraîner et évaluer", key="train_deep_simple"):
             if IS_CLOUD:
