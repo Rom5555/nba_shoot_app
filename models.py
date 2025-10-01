@@ -96,53 +96,120 @@ def train_and_eval(model_or_pipeline, X_train, y_train, X_test, y_test):
     
     return pipeline, report, auc, fig_cm
 
-def grid_search_pipeline(model, X_train, y_train, X_test, y_test, param_grid, cv=3, scoring='f1'):
-    pipeline = create_pipeline(model, X_train)
-    tscv = TimeSeriesSplit(n_splits=cv)
-    
-    grid = GridSearchCV(pipeline, param_grid, cv=tscv, scoring=scoring, n_jobs=-1, verbose=2)
-    grid.fit(X_train, y_train)
-    
-    best_model = grid.best_estimator_.named_steps['classifier']
-    preprocessor = grid.best_estimator_.named_steps['preprocessor']
-    
+# =========================
+# Fonctions de tuning (allégées + report + confusion matrix + importances)
+# =========================
+
+def _get_feature_importances(best_pipeline):
+    """Retourne DataFrame + figure des feature importances"""
+    best_model = best_pipeline.named_steps['classifier']
+    preprocessor = best_pipeline.named_steps['preprocessor']
+
+    # Récupération des noms de features
     try:
         feature_names = preprocessor.get_feature_names_out()
     except:
-        num_cols = preprocessor.transformers_[0][2] + preprocessor.transformers_[1][2]
-        cat_cols = preprocessor.transformers_[2][2] if len(preprocessor.transformers_) > 2 else []
-        bool_cols = preprocessor.transformers_[3][2] if len(preprocessor.transformers_) > 3 else []
-        feature_names = list(num_cols) + list(cat_cols) + list(bool_cols)
-    
+        feature_names = []
+        for name, trans, cols in preprocessor.transformers_:
+            if isinstance(cols, list):
+                feature_names.extend(cols)
+
+    # Récupération des importances
     try:
         importances = best_model.feature_importances_
     except AttributeError:
         importances = np.abs(best_model.coef_[0])
-    
-    importance_df = pd.DataFrame({'feature': feature_names, 'importance': importances}).sort_values('importance', ascending=False)
-    fig_importance, ax_imp = plt.subplots(figsize=(10,8))
-    sns.barplot(x='importance', y='feature', data=importance_df.head(20), ax=ax_imp)
-    ax_imp.set_title("Top 20 Feature Importances")
+
+    importance_df = pd.DataFrame({
+        'feature': feature_names,
+        'importance': importances
+    }).sort_values('importance', ascending=False)
+
+    # Graphique (top 15 pour limiter la taille)
+    fig_importance, ax = plt.subplots(figsize=(8, 6))
+    sns.barplot(x='importance', y='feature', data=importance_df.head(15), ax=ax)
+    ax.set_title("Top 15 Feature Importances")
     plt.tight_layout()
-    
-    # Ne plus créer la confusion matrix ici
-    return grid, fig_importance, importance_df
+
+    return importance_df, fig_importance
 
 
-def randomized_search_pipeline(model, X_train, y_train, param_dist, n_iter=50, cv=3, scoring='f1'):
+def _evaluate_pipeline(pipeline, X_test, y_test):
+    """Retourne classification report, AUC et confusion matrix"""
+    y_pred = pipeline.predict(X_test)
+    y_proba = pipeline.predict_proba(X_test)[:, 1]
+
+    report = classification_report(y_test, y_pred, target_names=['Miss','Made'], output_dict=True)
+    auc = roc_auc_score(y_test, y_proba)
+
+    cm = confusion_matrix(y_test, y_pred)
+    fig_cm, ax_cm = plt.subplots(figsize=(5,5))
+    ConfusionMatrixDisplay(cm, display_labels=['Miss','Made']).plot(cmap=plt.cm.Blues, ax=ax_cm)
+
+    return report, auc, fig_cm
+
+
+def grid_search_pipeline(model, X_train, y_train, X_test, y_test, param_grid, cv=2, scoring='f1'):
+    """GridSearch allégé avec report, AUC, confusion matrix et importances"""
     pipeline = create_pipeline(model, X_train)
     tscv = TimeSeriesSplit(n_splits=cv)
-    search = RandomizedSearchCV(pipeline, param_distributions=param_dist, n_iter=n_iter, cv=tscv,
-                                scoring=scoring, n_jobs=-1, verbose=2, random_state=42)
-    search.fit(X_train, y_train)
-    return search
 
-def optuna_tune(model_class, param_space, X_train, y_train, n_trials=50, scoring="f1"):
+    grid = GridSearchCV(
+        pipeline, 
+        param_grid, 
+        cv=tscv, 
+        scoring=scoring, 
+        n_jobs=-1, 
+        verbose=0
+    )
+    grid.fit(X_train, y_train)
+
+    best_pipeline = grid.best_estimator_
+    importance_df, fig_importance = _get_feature_importances(best_pipeline)
+    report, auc, fig_cm = _evaluate_pipeline(best_pipeline, X_test, y_test)
+
+    return best_pipeline, importance_df, fig_importance, report, auc, fig_cm
+
+
+def randomized_search_pipeline(model, X_train, y_train, X_test, y_test, param_dist, n_iter=10, cv=2, scoring='f1'):
+    """RandomizedSearch allégé avec report, AUC, confusion matrix et importances"""
+    pipeline = create_pipeline(model, X_train)
+    tscv = TimeSeriesSplit(n_splits=cv)
+
+    search = RandomizedSearchCV(
+        pipeline, 
+        param_distributions=param_dist, 
+        n_iter=n_iter, 
+        cv=tscv,
+        scoring=scoring, 
+        n_jobs=-1, 
+        verbose=0, 
+        random_state=42
+    )
+    search.fit(X_train, y_train)
+
+    best_pipeline = search.best_estimator_
+    importance_df, fig_importance = _get_feature_importances(best_pipeline)
+    report, auc, fig_cm = _evaluate_pipeline(best_pipeline, X_test, y_test)
+
+    return best_pipeline, importance_df, fig_importance, report, auc, fig_cm
+
+
+def optuna_tune(model_class, param_space, X_train, y_train, X_test, y_test, n_trials=30, scoring="f1"):
+    """
+    Optuna tuning rapide pour Streamlit IO.
+    Retourne pipeline final + importances + rapport + AUC + confusion matrix
+    """
+    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.metrics import f1_score, roc_auc_score
+
     def objective(trial):
+        # Crée modèle avec hyperparamètres choisis par Optuna
         params = param_space(trial)
         model = model_class(**params)
         pipeline = create_pipeline(model, X_train)
-        tscv = TimeSeriesSplit(n_splits=3)
+        
+        tscv = TimeSeriesSplit(n_splits=3)  # 3 splits pour garder un peu de généralisation
         scores = []
         for train_idx, val_idx in tscv.split(X_train):
             X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
@@ -151,57 +218,43 @@ def optuna_tune(model_class, param_space, X_train, y_train, n_trials=50, scoring
             preds = pipeline.predict(X_val)
             if scoring == "f1":
                 score = f1_score(y_val, preds, zero_division=0)
-            elif scoring == "roc_auc":
+            else:
                 probas = pipeline.predict_proba(X_val)[:, 1]
                 score = roc_auc_score(y_val, probas)
             scores.append(score)
         return np.mean(scores)
 
+    # Étude Optuna
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
 
+    # Meilleur modèle
     best_model = model_class(**study.best_params)
     pipeline_final = create_pipeline(best_model, X_train)
     pipeline_final.fit(X_train, y_train)
-    
-    return pipeline_final
 
-def evaluate_model(model, X_test, y_test, model_name="Modèle", feature_importances=False, fig_importance=None):
-    """
-    Évalue un modèle déjà entraîné :
-    - Classification report
-    - AUC ROC
-    - Confusion matrix
-    - Optionnellement feature importances si feature_importances=True
-    """
+    # Feature importances + rapports
+    importance_df, fig_importance = _get_feature_importances(pipeline_final)
+    report, auc, fig_cm = _evaluate_pipeline(pipeline_final, X_test, y_test)
+
+    return pipeline_final, importance_df, fig_importance, report, auc, fig_cm
+
+
+def evaluate_model(pipeline, X_test, y_test, model_name="", feature_importances=True, fig_importance=None):
+    """Affiche résultats Streamlit : AUC, rapport, matrice confusion, importances"""
     import streamlit as st
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-    from sklearn.metrics import roc_auc_score
 
-    # Prédictions
-    y_pred = model.predict(X_test)
-    y_proba = model.predict_proba(X_test)[:, 1]
+    report, auc, fig_cm = _evaluate_pipeline(pipeline, X_test, y_test)
 
-    # Rapport de classification et AUC
-    report = classification_report(y_test, y_pred, target_names=['Miss','Made'], output_dict=True)
-    auc = roc_auc_score(y_test, y_proba)
+    st.write(f"### Résultats {model_name}")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("AUC ROC", f"{auc:.4f}")
+        st.pyplot(fig_cm)
+    with col2:
+        st.write("### Rapport (simplifié)")
+        st.dataframe(pd.DataFrame(report).T[['precision','recall','f1-score']])
 
-    st.subheader(f"📊 Évaluation du {model_name}")
-    st.write("### Classification Report")
-    st.dataframe(pd.DataFrame(report).T)
-    st.write(f"AUC ROC: {auc:.4f}")
-
-    # Confusion matrix
-    cm = confusion_matrix(y_test, y_pred)
-    fig_cm, ax_cm = plt.subplots(figsize=(5,5))
-    ConfusionMatrixDisplay(cm, display_labels=['Miss','Made']).plot(cmap=plt.cm.Blues, ax=ax_cm)
-    st.pyplot(fig_cm)
-
-    # Feature importances
     if feature_importances and fig_importance is not None:
-        st.write("### Top 20 Feature Importances")
+        st.write("### Importances des features")
         st.pyplot(fig_importance)
-
-
