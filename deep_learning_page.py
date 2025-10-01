@@ -113,43 +113,47 @@ def show():
     # ---------------- Tab2 : Entraînement simple ----------------
     with tab2:
         if st.button("Entraîner et évaluer", key="train_deep_simple"):
-            numerical_continuous = deep.numerical_continuous
-            numerical_counts = deep.numerical_counts
-            categorical = deep.categorical
-            boolean = deep.boolean
+            if os.environ.get("STREAMLIT_RUNTIME") is not None:
+                st.warning("🚫 Le tuning est désactivé sur Streamlit Cloud (trop lourd).")
+                st.info("👉 Charge un modèle déjà entraîné depuis l’onglet 📂 Charger.")
+            else:           
+                numerical_continuous = deep.numerical_continuous
+                numerical_counts = deep.numerical_counts
+                categorical = deep.categorical
+                boolean = deep.boolean
 
-            X_train_proc, X_test_proc, preprocessor = deep.preprocess_data(
-                X_train, X_test,
-                numerical_continuous, numerical_counts, categorical, boolean
-            )
-
-            with st.spinner(f"Entraînement {deep_option} en cours..."):
-                model_type = 'keras' if deep_option == "Keras MLP" else 'tabnet'
-                model, report, auc_val, fig_cm, fig_loss, history = deep.train_and_eval(
-                    X_train_proc, y_train, X_test_proc, y_test,
-                    model_type=model_type, epochs=50, batch_size=1024
+                X_train_proc, X_test_proc, preprocessor = deep.preprocess_data(
+                    X_train, X_test,
+                    numerical_continuous, numerical_counts, categorical, boolean
                 )
 
-            deep.eval_deep(model, X_test_proc, y_test, history=history,
-                           plot_cm=True, plot_loss=True, show_on_streamlit=True)
+                with st.spinner(f"Entraînement {deep_option} en cours..."):
+                    model_type = 'keras' if deep_option == "Keras MLP" else 'tabnet'
+                    model, report, auc_val, fig_cm, fig_loss, history = deep.train_and_eval(
+                        X_train_proc, y_train, X_test_proc, y_test,
+                        model_type=model_type, epochs=50, batch_size=1024
+                    )
 
-            # ---------------- Sauvegarde allégée ----------------
-            os.makedirs("deep_models", exist_ok=True)
-            save_path = f"deep_models/{deep_name_lower}_standard.pkl"
-            save_obj = {"model": model, "preprocessor": preprocessor, "history": history}
+                deep.eval_deep(model, X_test_proc, y_test, history=history,
+                            plot_cm=True, plot_loss=True, show_on_streamlit=True)
 
-            if deep_option == "TabNet":
-                tabnet_model_path = f"deep_models/{deep_name_lower}_model.zip"
-                ok, info = save_model_light(save_path, save_obj, tabnet_model=model, tabnet_path=tabnet_model_path)
-            else:
-                ok, info = save_model_light(save_path, save_obj)
+                # ---------------- Sauvegarde allégée ----------------
+                os.makedirs("deep_models", exist_ok=True)
+                save_path = f"deep_models/{deep_name_lower}_standard.pkl"
+                save_obj = {"model": model, "preprocessor": preprocessor, "history": history}
 
-            if ok:
-                st.success(f"✅ {deep_option} entraîné et sauvegardé.")
-                if info:
-                    st.info(f"Info sauvegarde: {info}")
-            else:
-                st.error(f"❌ Échec de sauvegarde : {info}")
+                if deep_option == "TabNet":
+                    tabnet_model_path = f"deep_models/{deep_name_lower}_model.zip"
+                    ok, info = save_model_light(save_path, save_obj, tabnet_model=model, tabnet_path=tabnet_model_path)
+                else:
+                    ok, info = save_model_light(save_path, save_obj)
+
+                if ok:
+                    st.success(f"✅ {deep_option} entraîné et sauvegardé.")
+                    if info:
+                        st.info(f"Info sauvegarde: {info}")
+                else:
+                    st.error(f"❌ Échec de sauvegarde : {info}")
 
     # ---------------- Tab3 : Tuning ----------------
     with tab3:
