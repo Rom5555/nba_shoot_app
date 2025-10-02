@@ -56,7 +56,7 @@ def show():
         "optuna": f"models/{model_name_lower}_pipeline_optuna.pkl"
     }
 
-    tab1, tab2, tab3 = st.tabs(["📂 Charger", "🔹 Simple", "🔧 Tuning"])
+    tab1, tab2, tab3 = st.tabs(["📂 Charger modele", "🔹 Entrainement Simple", "🔧 Tuning"])
 
     # ---------------- Tab 1 : Charger ----------------
     with tab1:

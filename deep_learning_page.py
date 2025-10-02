@@ -78,7 +78,7 @@ def show():
         "tuned": f"deep_models/{deep_name_lower}_tuned.pkl"
     }
 
-    tab1, tab2, tab3 = st.tabs(["📂 Charger", "🔹 Simple", "🔧 Tuning"])
+    tab1, tab2, tab3 = st.tabs(["📂 Charger modele", "🔹 Entrainement Simple", "🔧 Tuning"])
 
     # ---------------- Tab1 : Charger ----------------
     with tab1:

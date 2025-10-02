@@ -19,13 +19,13 @@ def show():
     plot_options = {
         "Distribution cible": plot_target_distribution,
         "Tirs par joueur et type": plot_shot_type_by_player,
-        "Heatmap type de tir": plot_action_type_heatmap,
-        "Zones de tir par joueur": plot_shot_zone_area,
-        "Distance de tir par joueur": plot_shot_zone_range,
+        "Heatmap type d'action": plot_action_type_heatmap,
+        "Couloirs de tir par joueur": plot_shot_zone_area,
+        "Tranches de tir par joueur": plot_shot_zone_range,
         "Dispersion sur terrain": plot_all_players_scatter,
         "Distance vs résultat": plot_shot_distance,
         "Violin distance": plot_violin_distance,
-        "% cumulé tir par tir": plot_last_5d_pct
+        "% cumulé tir sur 5 jours": plot_last_5d_pct
     }
 
     plot_choice = st.sidebar.selectbox("Choisir un graphique", list(plot_options.keys()))

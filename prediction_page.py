@@ -6,7 +6,7 @@ import prediction
 FEATURES = ["SHOT_DISTANCE", "ACTION_ZONE_PCT", "DAYS_SINCE_LAST_GAME"]
 
 def show():
-    st.title("🏀 Mini-jeu de tir stylé avec ML")
+    st.title("🏀 Mini-jeu de prediction avec ML")
 
     # --------- Chargement pipeline ----------
     @st.cache_resource
