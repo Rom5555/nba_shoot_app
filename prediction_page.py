@@ -72,12 +72,12 @@ def show():
                 # Afficher le message en petit avec la probabilité
                 if success:
                     st.markdown(
-                        f'<div style="padding:4px 8px; background-color:#d4edda; color:#155724; border-radius:5px; font-size:14px; text-align:center;">🎉 Panier marqué ! Probabilité : {proba:.2f}</div>',
+                        f'<div style="padding:4px 8px; background-color:#d4edda; color:#155724; border-radius:5px; font-size:14px; text-align:center;">🎉 Panier marqué !</div>',
                         unsafe_allow_html=True
                     )
                 else:
                     st.markdown(
-                        f'<div style="padding:4px 8px; background-color:#f8d7da; color:#721c24; border-radius:5px; font-size:14px; text-align:center;">❌ Raté ! Probabilité : {proba:.2f}</div>',
+                        f'<div style="padding:4px 8px; background-color:#f8d7da; color:#721c24; border-radius:5px; font-size:14px; text-align:center;">❌ Raté !</div>',
                         unsafe_allow_html=True
                     )
 
