@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import pathlib
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
@@ -100,8 +101,11 @@ def show():
         tuning_method = st.radio("Méthode :", ["GridSearch", "RandomizedSearch", "Optuna"])
         key_map = {"GridSearch": "grid", "RandomizedSearch": "randomized", "Optuna": "optuna"}
 
-        IS_CLOUD = st.secrets.get("IS_CLOUD") == "true"
-
+        secrets_path = pathlib.Path(".streamlit/secrets.toml")
+        IS_CLOUD = False
+        if secrets_path.exists():
+            IS_CLOUD = st.secrets.get("IS_CLOUD", "false") == "true"
+        
         if st.button("Lancer le tuning", key="run_tuning"):
             # Vérifie si on est sur Streamlit Cloud
             if IS_CLOUD:

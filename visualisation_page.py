@@ -30,16 +30,16 @@ def show():
 
     plot_choice = st.sidebar.selectbox("Choisir un graphique", list(plot_options.keys()))
 
-    if plot_choice in ["Tirs par joueur et type", "Heatmap type de tir", "Violin distance",
-                       "Zones de tir par joueur", "Dispersion sur terrain",
-                       "% cumulé tir par tir", "Distance de tir par joueur"]:
+    if plot_choice in ["Tirs par joueur et type", "Heatmap type d'action", "Violin distance",
+                       "Couloirs de tir par joueur", "Dispersion sur terrain",
+                       "% cumulé tir sur 5 jours", "Tranches de tir par joueur"]:
         selected_players = st.sidebar.multiselect("Sélectionner les joueurs", player_list, default=player_list)
 
     plot_fn = plot_options[plot_choice]
 
     if plot_choice in ["Distribution cible", "Distance vs résultat"]:
         st.pyplot(plot_fn(df))
-    elif plot_choice == "% cumulé tir par tir":
+    elif plot_choice == "% cumulé tir sur 5 jours":
         for fig in plot_fn(df, selected_players):
             st.pyplot(fig)
     else:

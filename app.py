@@ -1,5 +1,16 @@
 import acceuil_page, data_page, deep_learning_page, models_page, visualisation_page, prediction_page
 import streamlit as st
+import asyncio
+import warnings
+
+# 🔹 Patch asyncio pour Streamlit
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+# 🔹 Ignorer les warnings PyTorch liés à __path__._path
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="torch")
 
 
 # Configuration de la page

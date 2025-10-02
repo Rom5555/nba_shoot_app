@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import pathlib
 import joblib
 from pytorch_tabnet.tab_model import TabNetClassifier
 import deep_learning as deep  # ton module deep_learning.py
@@ -112,7 +113,10 @@ def show():
 
     # ---------------- Tab2 : Entraînement simple ----------------
     with tab2:
-        IS_CLOUD = st.secrets.get("IS_CLOUD") == "true"
+        secrets_path = pathlib.Path(".streamlit/secrets.toml")
+        IS_CLOUD = False
+        if secrets_path.exists():
+            IS_CLOUD = st.secrets.get("IS_CLOUD", "false") == "true"
         
         if st.button("Entraîner et évaluer", key="train_deep_simple"):
             if IS_CLOUD:
