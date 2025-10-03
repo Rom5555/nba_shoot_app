@@ -29,7 +29,7 @@ Le principal verrou scientifique a été la difficulté à obtenir de données b
 #### 🧑‍💻 Compétences techniques / théoriques
 
 - Acquisition rapide de compétences pratiques en XGBoost, TabNet et Keras; montage d’un pipeline ColumnTransformer/OneHot/Scaler.
-- Difficultés initiales : implémentation correcte des validations temporelles (TimeSeriesSplit vs split par date), gestion des features hiérarchiques (effet joueur), et interprétabilité (mise en place SHAP).
+- Difficultés initiales : implémentation correcte des validations temporelles (TimeSeriesSplit vs split par date), gestion des features hiérarchiques (effet joueur), et interprétabilité (mise en place des features importance).
 
 #### 🎯Pertinence : de l’approche, du modèle, des données
 
