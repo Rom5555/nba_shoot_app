@@ -1,4 +1,4 @@
-import acceuil_page, data_page, deep_learning_page, models_page, visualisation_page, prediction_page
+import acceuil_page, data_page, deep_learning_page, models_page, visualisation_page, prediction_page, conclusion_page
 import streamlit as st
 import asyncio
 import warnings
@@ -24,6 +24,7 @@ menu = {
     "Modèles": models_page.show,
     "Deep Learning": deep_learning_page.show,
     "Prédiction": prediction_page.show,
+    "Conclusion": conclusion_page.show
 }
 
 # Sélection via la sidebar
