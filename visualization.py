@@ -7,6 +7,7 @@ import plotly.express as px
 import pandas as pd
 import matplotlib.patches as patches
 from matplotlib.patches import Arc
+from matplotlib.colors import LinearSegmentedColormap
 
 # 1. Distribution de la variable cible
 def plot_target_distribution(df):
@@ -143,6 +144,50 @@ def plot_shot_zone_area(df, selected_players=None):
     plt.tight_layout()
     return fig
 
+
+# Palette bleu clair → bleu foncé
+heat_palette_blue = LinearSegmentedColormap.from_list(
+    "heat_blue",
+    ["#E0F3FF", "#66B2FF", "#1A75FF", "#0033A0"]
+)
+
+def plot_all_players_heatmap_blue(df, selected_players=None):
+    if selected_players is None:
+        selected_players = df['PLAYER_NAME'].unique()
+
+    n_players = len(selected_players)
+    n_cols = 3
+    n_rows = math.ceil(n_players / n_cols)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 4, n_rows * 4))
+    axes = axes.flatten()
+
+    for i, player in enumerate(selected_players):
+        ax = axes[i]
+        draw_nba_court(ax)
+
+        sub = df[df['PLAYER_NAME'] == player]
+
+        sns.kdeplot(
+            x=sub['LOC_X'],
+            y=sub['LOC_Y'],
+            fill=True,
+            cmap=heat_palette_blue,
+            bw_adjust=0.8,
+            alpha=0.7,
+            levels=20,
+            thresh=0.05,
+            gridsize=100,
+            ax=ax
+        )
+
+        ax.set_title(player, fontsize=10, pad=12)
+
+    for j in range(i + 1, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    return fig
 
 # 6. Scatter de tous les joueurs (adapté pour joueurs sélectionnés)
 def plot_all_players_scatter(df, selected_players=None):
